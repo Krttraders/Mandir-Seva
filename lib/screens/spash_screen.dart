@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 
 // --- Constants for better readability ---
 const Duration _kAnimationDuration = Duration(milliseconds: 2500);
-const Duration _kNavigationDelay = Duration(milliseconds: 3000); // Wait for anim to finish
-const Color _kSaffron = Color(0xFFFF9933); // Primary color
+// Wait for animation to finish (3000ms) before navigating
+const Duration _kNavigationDelay = Duration(milliseconds: 3000);
+const Color _kSaffron = Color(0xFFFF9933); // Primary color (Orange)
 const Color _kDarkOrange = Color(0xFFE65100); // Dark text color
 const Color _kGreyText = Color(0xFF757575); // Secondary text color
 
@@ -27,6 +28,7 @@ class _SplashScreenState extends State<SplashScreen>
   void initState() {
     super.initState();
     _initializeAnimations();
+    // Start navigation timer immediately after initializing
     _startNavigationTimer();
   }
 
@@ -85,8 +87,8 @@ class _SplashScreenState extends State<SplashScreen>
 
     // Check if the widget is still in the tree before navigating
     if (mounted) {
-      // NOTE: Ensure '/home' is correctly registered in your MaterialApp routes.
-      Navigator.pushReplacementNamed(context, '/home');
+      // 💡 CHANGE: Navigate to the '/signin' route instead of '/home'
+      Navigator.pushReplacementNamed(context, '/signin');
     }
   }
 
@@ -138,7 +140,6 @@ class _SplashScreenState extends State<SplashScreen>
 
               // --- Main Content (Icon, Text, Loader) ---
               Center(
-                // SingleChildScrollView is a great addition for small screens!
                 child: SingleChildScrollView(
                   padding: EdgeInsets.symmetric(vertical: size.height * 0.05),
                   child: Column(
@@ -384,13 +385,12 @@ class _SplashScreenState extends State<SplashScreen>
             ),
             SizedBox(height: 2),
             Text(
-              // **BOLDED AS REQUESTED**
               'VisionEdge',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
                 color: _kGreyText,
-                fontWeight: FontWeight.w800, // Made bolder
+                fontWeight: FontWeight.w800,
                 fontStyle: FontStyle.italic,
               ),
             ),

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "41999204235",
+    "project_id": "mandirseva-69aa6",
+    "storage_bucket": "mandirseva-69aa6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:41999204235:android:11311f32c8d148beadf98e",
+        "android_client_info": {
+          "package_name": "com.example.mandirseva"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD98sn36xFXyW_tQkgT_L8gjkId-LB7FLg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
-import '../services/mock_service.dart';
+import '../services/mock_service.dart'; // मान लिया गया कि इसमें getTempleStats है
 import '../services/weather_service.dart';
 import '../widgets/crowd_heatmap.dart';
-// पुराने widgets को हटा दिया गया है क्योंकि हम उन्हें यहाँ अनुकूलित करेंगे
-// import '../widgets/weather_widget.dart';
-// import '../widgets/quick_stats_widget.dart';
-// import '../widgets/live_darshan_widget.dart';
 import 'EventsScreen.dart';
 import 'ScheduleScreen.dart';
 import 'TempleInfoScreen.dart';
 import 'LiveDarshanScreen.dart';
 import 'DonationScreen.dart';
 import 'VirtualTourScreen.dart';
+
+// यह मानें कि आप एक named route का उपयोग करेंगे: '/signin'
+// import '../authentication/signin_screen.dart'; // वास्तविक ऐप में इसे इंपोर्ट करें
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -24,6 +23,9 @@ class _HomeScreenState extends State<HomeScreen> {
   late Future<Map<String, dynamic>> _weatherData;
   late Future<Map<String, dynamic>> _templeStats;
 
+  // Realtime Working के लिए Live Darshan का डेटा _templeStats से ही लेंगे
+  // ताकि 'getLiveDarshanStatus' वाली त्रुटि न आए।
+
   @override
   void initState() {
     super.initState();
@@ -32,6 +34,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _fetchData() {
     _weatherData = WeatherService.getWeatherData();
+    // हम मान रहे हैं कि MockService.getTempleStats() में लाइव दर्शक और स्टेटस की जानकारी भी है
     _templeStats = Future.value(Map<String, dynamic>.from(MockService.getTempleStats()));
   }
 
@@ -39,7 +42,19 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _fetchData();
     });
-    await Future.delayed(const Duration(milliseconds: 800));
+    // सभी Future के पूरा होने का इंतजार करें
+    await Future.wait([_weatherData, _templeStats]);
+  }
+
+  void _handleLogout() {
+    // यहाँ आप Firebase या अन्य सेवा के लिए वास्तविक Logout Logic जोड़ सकते हैं
+
+    // logout होते ही SignInScreen पर चले जाएं
+    // सुनिश्चित करें कि '/signin' route आपके main.dart में परिभाषित है।
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      '/signin',
+          (Route<dynamic> route) => false,
+    );
   }
 
   @override
@@ -64,6 +79,13 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: Icons.dashboard_outlined,
             onPressed: () => Navigator.pushNamed(context, '/operator'),
           ),
+          // *** LOGOUT BUTTON ***
+          _buildAppBarIcon(
+            icon: Icons.logout,
+            onPressed: _handleLogout,
+            color: Colors.white,
+            tooltip: 'Logout',
+          ),
           const SizedBox(width: 8),
         ],
       ),
@@ -82,7 +104,7 @@ class _HomeScreenState extends State<HomeScreen> {
               _buildWeatherWidget(),
               const SizedBox(height: 16),
 
-              // Quick Stats Section (FIXED in previous iteration)
+              // Quick Stats Section
               _buildQuickStats(context),
 
               const SizedBox(height: 16),
@@ -91,7 +113,7 @@ class _HomeScreenState extends State<HomeScreen> {
               _buildCrowdStatusCard(context),
               const SizedBox(height: 20),
 
-              // *** Live Darshan Preview (NEW FIX FOR RIGHT OVERFLOW) ***
+              // *** Live Darshan Preview (अब _templeStats का उपयोग कर रहा है) ***
               _buildLiveDarshanPreview(
                 onTap: () => Navigator.push(
                   context,
@@ -100,7 +122,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 20),
 
-              // Quick Actions Section (FIXED in previous iteration)
+              // Quick Actions Section
               _buildQuickActionsSection(context),
               const SizedBox(height: 20),
 
@@ -121,12 +143,15 @@ class _HomeScreenState extends State<HomeScreen> {
     required IconData icon,
     required VoidCallback onPressed,
     int badgeCount = 0,
+    Color color = Colors.white,
+    String? tooltip,
   }) {
     return Stack(
       children: [
         IconButton(
           onPressed: onPressed,
-          icon: Icon(icon, color: Colors.white),
+          icon: Icon(icon, color: color),
+          tooltip: tooltip,
         ),
         if (badgeCount > 0)
           Positioned(
@@ -171,9 +196,10 @@ class _HomeScreenState extends State<HomeScreen> {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
+        // डेटा नहीं मिलने पर डिफ़ॉल्ट मान
         final data = snapshot.data ?? {};
         final temperature = data['temperature']?.toString() ?? '--';
-        final condition = data['condition'] ?? 'Loading...';
+        final condition = data['condition'] ?? 'Unknown';
         final feelsLike = data['feelsLike']?.toString() ?? '--';
         final humidity = data['humidity']?.toString() ?? '--';
 
@@ -188,7 +214,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.wb_sunny, color: Colors.amber, size: 36),
+                    // आइकन को कंडीशन के आधार पर बदला जा सकता है
+                    Icon(_getWeatherIcon(condition), color: Colors.amber, size: 36),
                     const SizedBox(width: 12),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -231,6 +258,18 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  IconData _getWeatherIcon(String condition) {
+    // सरल लॉजिक (Simple logic)
+    if (condition.toLowerCase().contains('sun') || condition.toLowerCase().contains('clear')) {
+      return Icons.wb_sunny;
+    } else if (condition.toLowerCase().contains('rain')) {
+      return Icons.cloudy_snowing;
+    } else if (condition.toLowerCase().contains('cloud')) {
+      return Icons.cloud;
+    }
+    return Icons.wb_sunny; // Default
+  }
+
   Widget _buildQuickStats(BuildContext context) {
     return FutureBuilder<Map<String, dynamic>>(
       future: _templeStats,
@@ -241,6 +280,7 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         }
 
+        // Live Darshan के लिए भी यहाँ से डेटा लिया गया है
         final data = snapshot.data ?? {'visitorsToday': 0, 'liveVisitors': 0, 'aartiToday': 0};
 
         return Row(
@@ -249,7 +289,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Expanded(
               child: _buildStatCard(
                 icon: Icons.people_alt,
-                count: data['visitorsToday'].toString(),
+                count: data['visitorsToday']?.toString() ?? '0',
                 label: 'Visitors today',
                 color: Colors.blue,
               ),
@@ -258,7 +298,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Expanded(
               child: _buildStatCard(
                 icon: Icons.person_pin_circle,
-                count: data['liveVisitors'].toString(),
+                count: data['liveVisitors']?.toString() ?? '0',
                 label: 'Live visitors',
                 color: Colors.green,
               ),
@@ -267,7 +307,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Expanded(
               child: _buildStatCard(
                 icon: Icons.lightbulb_outline,
-                count: data['aartiToday'].toString(),
+                count: data['aartiToday']?.toString() ?? '0',
                 label: 'Aarti today',
                 color: Colors.deepOrange,
               ),
@@ -397,114 +437,137 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // *** FIX 3: Live Darshan Preview (Horizontal OVERFLOW FIX APPLIED HERE) ***
+
+  // *** Live Darshan Preview (अब _templeStats का उपयोग कर रहा है) ***
   Widget _buildLiveDarshanPreview({required VoidCallback onTap}) {
-    // Mock data for the live card
-    const String status = 'Sanctum Sanctorum';
-    const int viewers = 89;
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _templeStats,
+      builder: (context, snapshot) {
+        // Fallback or Loading State
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Card(
+            elevation: 2,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Container(height: 80, child: const Center(child: CircularProgressIndicator())),
+          );
+        }
 
-    return InkWell(
-      onTap: onTap,
-      child: Card(
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            // Light background gradient to enhance the look
-            gradient: LinearGradient(
-              colors: [Colors.purple[50]!, Colors.white],
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-            ),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              children: [
-                // 1. Icon/Thumbnail Placeholder
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.live_tv_outlined, color: Colors.red, size: 30),
+        // Data available
+        final data = snapshot.data ?? {};
+        // MockService.getTempleStats() में लाइव डेटा नहीं होने पर डिफ़ॉल्ट मान
+        // आपको अपनी MockService या API से वास्तविक डेटा प्राप्त करने के लिए यह फ़ील्ड जोड़ना होगा
+        final String status = data['liveStreamStatus'] ?? 'Sanctum Sanctorum';
+        final int viewers = data['liveViewers'] ?? (data['liveVisitors'] ?? 0); // liveVisitors से भी ले सकते हैं
+        final bool isLive = data['isLive'] ?? (viewers > 0); // मान लें कि अगर दर्शक हैं तो लाइव है
+
+        final Color liveColor = isLive ? Colors.red : Colors.grey;
+
+        return InkWell(
+          onTap: isLive ? onTap : null,
+          child: Card(
+            elevation: 4,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                gradient: LinearGradient(
+                  colors: isLive
+                      ? [liveColor.withOpacity(0.1), Colors.white]
+                      : [Colors.grey[100]!, Colors.white],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
                 ),
-                const SizedBox(width: 12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  children: [
+                    // 1. Icon/Thumbnail Placeholder
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: liveColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(Icons.live_tv_outlined, color: liveColor, size: 30),
+                    ),
+                    const SizedBox(width: 12),
 
-                // 2. Text Content (Expanded to take all available space)
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
+                    // 2. Text Content
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          // LIVE Badge
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: const Text(
-                              'LIVE',
-                              style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                            ),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              // LIVE Badge
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: liveColor,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  isLive ? 'LIVE' : 'OFFLINE',
+                                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              // Status Text
+                              Flexible(
+                                child: Text(
+                                  status,
+                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey[700]),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 8),
-                          // Status Text (Sanctum Sanctorum)
-                          Flexible( // **FIX: Flexible/Expanded to control text width**
-                            child: Text(
-                              status,
-                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey[700]),
-                              overflow: TextOverflow.ellipsis,
-                              maxLines: 1,
-                            ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Live Darshan Stream',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isLive ? Colors.black87 : Colors.grey),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            isLive ? 'Join $viewers people watching' : 'Check back for next Darshan',
+                            style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Live Darshan',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Join $viewers people watching',
-                        style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-
-                // 3. Play Button (Fixed size)
-                Container(
-                  margin: const EdgeInsets.only(left: 8),
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                        color: Colors.purple,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(color: Colors.purple.withOpacity(0.3), blurRadius: 6, offset: const Offset(0, 3))
-                        ]
                     ),
-                    child: const Icon(Icons.play_arrow, color: Colors.white, size: 28),
-                  ),
+
+                    // 3. Action Icon
+                    Container(
+                      margin: const EdgeInsets.only(left: 8),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                            color: isLive ? Colors.red : Colors.grey,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              if (isLive)
+                                BoxShadow(color: Colors.red.withOpacity(0.3), blurRadius: 6, offset: const Offset(0, 3))
+                            ]
+                        ),
+                        child: Icon(isLive ? Icons.play_arrow : Icons.pause, color: Colors.white, size: 28),
+                      ),
+                    )
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
